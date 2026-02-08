@@ -3,78 +3,70 @@ import pandas as pd
 import plotly.express as px
 
 df = pd.read_csv("Customer-Churn-Records.csv")
-df['SignupDate'] = pd.to_datetime(df['SignupDate'])
-total_customers = df['CustomerID'].nunique()
-churned_customers = (df['Churn'] == 1).sum()
-active_customers = (df['Churn'] == 0).sum()
-churn_rate = df['Churn'].mean() * 100
+
+total_customers = df['CustomerId'].nunique()
+churned_customers = (df['Exited'] == 1).sum()
+active_customers = (df['Exited'] == 0).sum()
+churn_rate = df['Exited'].mean() * 100
 st.title("📊 Customer Churn Dashboard")
 st.write("Track KPIs and trends for customer retention and churn.")
-col1, col2, col3, col4 = st.columns(4)
 
-col1.metric("Total Customers", total_customers)
-col2.metric("Churned Customers", churned_customers)
-col3.metric("Active Customers", active_customers)
-col4.metric("Churn Rate (%)", f"{churn_rate:.2f}%")
-# Monthly churn rate
-monthly_churn = (
-    df.groupby(df['SignupDate'].dt.to_period("M"))['Churn']
-      .mean()
-      .reset_index()
+df['TenureGroup'] = pd.cut(df['Tenure'], bins=[0,2,5,10], labels=['0-2','3-5','6-10'])
+
+# -------Chart by Plan----------#
+plan_churn = df.groupby('Card Type')['Exited'].mean().reset_index()
+plan_churn['Exited'] = plan_churn['Exited']*100  # convert to percent
+
+fig_plan = px.bar(
+    plan_churn,
+    x='Card Type',
+    y='Exited',
+    title="Churn Rate by Card Type",
+    text='Exited'
 )
-monthly_churn['SignupDate'] = monthly_churn['SignupDate'].astype(str)
+st.plotly_chart(fig_plan, use_container_width=True)
 
-fig1 = px.line(
-    monthly_churn,
-    x='SignupDate',
-    y='Churn',
-    title="Monthly Churn Rate",
+# 2️⃣ Churn rate by Geography
+geo_churn = df.groupby('Geography')['Exited'].mean().reset_index()
+geo_churn['Exited'] = geo_churn['Exited']*100  # percent
+
+fig_geo = px.bar(
+    geo_churn,
+    x='Geography',
+    y='Exited',
+    title="Churn Rate by Geography",
+    text='Exited'
+)
+st.plotly_chart(fig_geo, use_container_width=True)
+
+# 3️⃣ Churn rate by Tenure Group (trend substitute for monthly trend)
+tenure_churn = df.groupby('TenureGroup')['Exited'].mean().reset_index()
+tenure_churn['Exited'] = tenure_churn['Exited']*100
+
+fig_tenure = px.line(
+    tenure_churn,
+    x='TenureGroup',
+    y='Exited',
+    title="Churn Rate by Tenure Group",
     markers=True
 )
+st.plotly_chart(fig_tenure, use_container_width=True)
 
-st.plotly_chart(fig1, use_container_width=True)
-# Churn rate by plan type
-plan_churn = df.groupby('PlanType')['Churn'].mean().reset_index()
-plan_churn['Churn'] = plan_churn['Churn']*100
-
-fig2 = px.bar(
-    plan_churn,
-    x='PlanType',
-    y='Churn',
-    title="Churn Rate by Plan Type",
-    text='Churn'
-)
-
-st.plotly_chart(fig2, use_container_width=True)
-
-region_churn = df.groupby('Region')['Churn'].mean().reset_index()
-region_churn['Churn'] = region_churn['Churn']*100
-
-fig3 = px.bar(
-    region_churn,
-    x='Region',
-    y='Churn',
-    title="Churn Rate by Region",
-    text='Churn'
-)
-
-st.plotly_chart(fig3, use_container_width=True)
-
-monthly_summary = df.groupby(df['SignupDate'].dt.to_period("M")).agg(
-    new_customers=('CustomerID', 'count'),
-    churned=('Churn', 'sum')
+# 4️⃣ New vs Churned customers per Tenure Group (stacked bar)
+tenure_summary = df.groupby('TenureGroup').agg(
+    total_customers=('CustomerId', 'count'),
+    churned=('Exited', 'sum')
 ).reset_index()
 
-monthly_summary['SignupDate'] = monthly_summary['SignupDate'].astype(str)
+tenure_summary['active'] = tenure_summary['total_customers'] - tenure_summary['churned']
 
-fig4 = px.bar(
-    monthly_summary,
-    x='SignupDate',
-    y=['new_customers', 'churned'],
-    title="New vs Churned Customers per Month"
+fig_tenure_bar = px.bar(
+    tenure_summary,
+    x='TenureGroup',
+    y=['active','churned'],
+    title="Active vs Churned Customers by Tenure Group"
 )
-
-st.plotly_chart(fig4, use_container_width=True)
+st.plotly_chart(fig_tenure_bar, use_container_width=True)
 
 st.subheader("📌 Key Insights")
 st.write("""
