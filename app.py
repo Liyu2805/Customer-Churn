@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-df = pd.read_csv("customer_churn.csv")
+df = pd.read_csv("Customer-Churn-Records.csv")
 df['SignupDate'] = pd.to_datetime(df['SignupDate'])
 total_customers = df['CustomerID'].nunique()
 churned_customers = (df['Churn'] == 1).sum()
