@@ -70,7 +70,8 @@ st.plotly_chart(fig_tenure_bar, use_container_width=True)
 
 st.subheader("📌 Key Insights")
 st.write("""
-- Churn is highest in [PlanType with max churn]  
-- Churn rate is trending up/down in recent months  
-- Active customers are concentrated in [PlanType / Region]  
+- Highest churn is in customers with certain Card Types.
+- Customers with complaints have higher churn.
+- Churn tends to decrease with higher tenure.
+- Geography also affects churn rates.
 """)
