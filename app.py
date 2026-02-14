@@ -4,7 +4,7 @@ import streamlit as st
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("customer_churn.csv")  # replace with your file path
+    df = pd.read_csv("Customer-Churn-Records.csv")  
     return df
 
 df = load_data()
