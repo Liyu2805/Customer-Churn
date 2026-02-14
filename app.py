@@ -1,77 +1,64 @@
-import streamlit as st
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 
-df = pd.read_csv("Customer-Churn-Records.csv")
+@st.cache_data
+def load_data():
+    df = pd.read_csv("customer_churn.csv")  # replace with your file path
+    return df
+
+df = load_data()
+
+st.title("Customer Churn Dashboard")
+st.markdown("""
+This dashboard provides insights into customer churn trends, satisfaction, and behavior.
+""")
 
 total_customers = df['CustomerId'].nunique()
-churned_customers = (df['Exited'] == 1).sum()
-active_customers = (df['Exited'] == 0).sum()
-churn_rate = df['Exited'].mean() * 100
-st.title("📊 Customer Churn Dashboard")
-st.write("Track KPIs and trends for customer retention and churn.")
+churned_customers = df['Exited'].sum()
+active_customers = total_customers - churned_customers
+avg_balance = df['Balance'].mean()
+avg_age = df['Age'].mean()
+avg_salary = df['EstimatedSalary'].mean()
 
-df['TenureGroup'] = pd.cut(df['Tenure'], bins=[0,2,5,10], labels=['0-2','3-5','6-10'])
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Customers", total_customers)
+col2.metric("Churned Customers", churned_customers)
+col3.metric("Active Customers", active_customers)
 
-# -------Chart by Plan----------#
-plan_churn = df.groupby('Card Type')['Exited'].mean().reset_index()
-plan_churn['Exited'] = plan_churn['Exited']*100  # convert to percent
+col4, col5 = st.columns(2)
+col4.metric("Average Balance", f"${avg_balance:,.2f}")
+col5.metric("Average Salary", f"${avg_salary:,.2f}")
 
-fig_plan = px.bar(
-    plan_churn,
-    x='Card Type',
-    y='Exited',
-    title="Churn Rate by Card Type",
-    text='Exited'
-)
-st.plotly_chart(fig_plan, use_container_width=True)
+st.sidebar.header("Filters")
+selected_geo = st.sidebar.multiselect("Select Geography", df['Geography'].unique(), default=df['Geography'].unique())
+selected_gender = st.sidebar.multiselect("Select Gender", df['Gender'].unique(), default=df['Gender'].unique())
 
-# 2️⃣ Churn rate by Geography
-geo_churn = df.groupby('Geography')['Exited'].mean().reset_index()
-geo_churn['Exited'] = geo_churn['Exited']*100  # percent
+filtered_df = df[(df['Geography'].isin(selected_geo)) & (df['Gender'].isin(selected_gender))]
 
-fig_geo = px.bar(
-    geo_churn,
-    x='Geography',
-    y='Exited',
-    title="Churn Rate by Geography",
-    text='Exited'
-)
-st.plotly_chart(fig_geo, use_container_width=True)
+st.subheader("Churn by Geography")
+churn_geo = filtered_df.groupby('Geography')['Exited'].mean().reset_index()
+churn_geo['Exited'] = churn_geo['Exited']*100
+fig1 = px.bar(churn_geo, x='Geography', y='Exited', text='Exited', labels={'Exited':'Churn Rate (%)'})
+st.plotly_chart(fig1, use_container_width=True)
 
-# 3️⃣ Churn rate by Tenure Group (trend substitute for monthly trend)
-tenure_churn = df.groupby('TenureGroup')['Exited'].mean().reset_index()
-tenure_churn['Exited'] = tenure_churn['Exited']*100
+st.subheader("Churn by Gender")
+churn_gender = filtered_df.groupby('Gender')['Exited'].mean().reset_index()
+churn_gender['Exited'] = churn_gender['Exited']*100
+fig2 = px.pie(churn_gender, names='Gender', values='Exited', title='Churn Rate by Gender')
+st.plotly_chart(fig2, use_container_width=True)
 
-fig_tenure = px.line(
-    tenure_churn,
-    x='TenureGroup',
-    y='Exited',
-    title="Churn Rate by Tenure Group",
-    markers=True
-)
-st.plotly_chart(fig_tenure, use_container_width=True)
+st.subheader("Customer Satisfaction Distribution")
+fig3 = px.histogram(filtered_df, x='Satisfaction Score', nbins=10, color='Exited', barmode='overlay',
+                    labels={'Satisfaction Score':'Satisfaction Score', 'Exited':'Churn'})
+st.plotly_chart(fig3, use_container_width=True)
 
-# 4️⃣ New vs Churned customers per Tenure Group (stacked bar)
-tenure_summary = df.groupby('TenureGroup').agg(
-    total_customers=('CustomerId', 'count'),
-    churned=('Exited', 'sum')
-).reset_index()
+st.subheader("Number of Products vs Churn")
+fig4 = px.box(filtered_df, x='NumOfProducts', y='Balance', color='Exited',
+              labels={'NumOfProducts':'Number of Products', 'Balance':'Balance'})
+st.plotly_chart(fig4, use_container_width=True)
 
-tenure_summary['active'] = tenure_summary['total_customers'] - tenure_summary['churned']
-
-fig_tenure_bar = px.bar(
-    tenure_summary,
-    x='TenureGroup',
-    y=['active','churned'],
-    title="Active vs Churned Customers by Tenure Group"
-)
-st.plotly_chart(fig_tenure_bar, use_container_width=True)
-
-st.subheader("📌 Key Insights")
-st.write("""
-- Highest churn is in customers with certain Card Types.
-- Customers with complaints have higher churn.
-- Churn tends to decrease with higher tenure.
-- Geography also affects churn rates.
-""")
+st.subheader("Points Earned vs Churn")
+fig5 = px.scatter(filtered_df, x='Point Earned', y='Balance', color='Exited', size='EstimatedSalary',
+                  labels={'Point Earned':'Points Earned', 'Balance':'Balance'})
+st.plotly_chart(fig5, use_container_width=True)
